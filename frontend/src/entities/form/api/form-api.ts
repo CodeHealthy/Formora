@@ -1,10 +1,16 @@
 import {
   formListResponseSchema,
+  formDraftResponseSchema,
+  formAccessResponseSchema,
   formResponseSchema,
   type CreateFormRequest,
   type FormListQuery,
   type FormListResponse,
   type FormResponse,
+  type FormDefinition,
+  type FormDraftResponse,
+  type FormAccessRequest,
+  type FormAccessResponse,
   type RenameFormRequest,
 } from "../../../shared/api/contracts";
 
@@ -54,4 +60,40 @@ export function archiveForm(formId: string): Promise<FormResponse> {
   return requestValidated(`/forms/${formId}`, formResponseSchema, {
     method: "DELETE",
   });
+}
+
+export function getFormDraft(formId: string): Promise<FormDraftResponse> {
+  return getValidated(`/forms/${formId}/draft`, formDraftResponseSchema);
+}
+
+export function saveFormDraft(
+  formId: string,
+  definition: FormDefinition,
+): Promise<FormDraftResponse> {
+  return requestValidated(`/forms/${formId}/draft`, formDraftResponseSchema, {
+    body: definition,
+    method: "PUT",
+  });
+}
+
+export function getFormAccessSettings(formId: string): Promise<FormAccessResponse> {
+  return getValidated(`/forms/${formId}/access-settings`, formAccessResponseSchema);
+}
+
+export function updateFormAccessSettings(
+  formId: string,
+  input: FormAccessRequest,
+): Promise<FormAccessResponse> {
+  return requestValidated(`/forms/${formId}/access-settings`, formAccessResponseSchema, {
+    body: input,
+    method: "PUT",
+  });
+}
+
+export function publishForm(formId: string): Promise<FormResponse> {
+  return requestValidated(`/forms/${formId}/publish`, formResponseSchema, { method: "POST" });
+}
+
+export function unpublishForm(formId: string): Promise<FormResponse> {
+  return requestValidated(`/forms/${formId}/publish`, formResponseSchema, { method: "DELETE" });
 }

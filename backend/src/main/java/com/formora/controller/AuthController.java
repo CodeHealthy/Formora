@@ -1,15 +1,17 @@
 package com.formora.controller;
 
 import com.formora.common.ApiResponse;
+import com.formora.dto.AuthDtos.AuthData;
+import com.formora.dto.AuthDtos.AuthResponse;
+import com.formora.dto.AuthDtos.AuthUser;
+import com.formora.dto.AuthDtos.LoginRequest;
+import com.formora.dto.AuthDtos.LogoutData;
+import com.formora.dto.AuthDtos.LogoutResponse;
+import com.formora.dto.AuthDtos.RegisterRequest;
 import com.formora.model.User;
 import com.formora.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import java.time.Instant;
-import java.util.Map;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -66,36 +68,11 @@ public class AuthController {
 
     private AuthResponse response(User user, HttpServletRequest request) {
         return new AuthResponse(
-                new AuthData(new AuthUser(user.getId(), user.getDisplayName(), user.getEmail(), user.getCreatedAt())),
+                new AuthData(new AuthUser(
+                        user.getId(), user.getDisplayName(), user.getEmail(), user.getRole(), user.getCreatedAt()
+                )),
                 ApiResponse.meta(request)
         );
     }
 
-    public record RegisterRequest(
-            @NotBlank @Size(min = 2, max = 80) String displayName,
-            @NotBlank @Email @Size(max = 254) String email,
-            @NotBlank @Size(min = 8, max = 128) String password
-    ) {
-    }
-
-    public record LoginRequest(
-            @NotBlank @Email @Size(max = 254) String email,
-            @NotBlank @Size(max = 128) String password
-    ) {
-    }
-
-    public record AuthUser(String id, String displayName, String email, Instant createdAt) {
-    }
-
-    public record AuthData(AuthUser user) {
-    }
-
-    public record AuthResponse(AuthData data, Map<String, String> meta) {
-    }
-
-    public record LogoutData(boolean success) {
-    }
-
-    public record LogoutResponse(LogoutData data, Map<String, String> meta) {
-    }
 }

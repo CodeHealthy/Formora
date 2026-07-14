@@ -4,6 +4,7 @@ import com.formora.common.ApiException;
 import com.formora.config.FormoraProperties;
 import com.formora.model.Session;
 import com.formora.model.User;
+import com.formora.model.UserRole;
 import com.formora.repository.SessionRepository;
 import com.formora.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
@@ -55,7 +56,8 @@ public class AuthService {
         User user;
         try {
             user = userRepository.save(new User(
-                    displayName.trim(), normalizedEmail, passwordEncoder.encode(password), now
+                    displayName.trim(), normalizedEmail, passwordEncoder.encode(password),
+                    roleFor(normalizedEmail), now
             ));
         } catch (DuplicateKeyException exception) {
             throw emailAlreadyRegistered();
@@ -63,11 +65,25 @@ public class AuthService {
         return issueSession(user, now);
     }
 
+    private UserRole roleFor(String normalizedEmail) {
+        String configuredEmails = properties.adminEmails() == null ? "" : properties.adminEmails();
+        boolean administrator = java.util.Arrays.stream(configuredEmails.split(","))
+                .map(String::trim)
+                .map(email -> email.toLowerCase(Locale.ROOT))
+                .anyMatch(normalizedEmail::equals);
+        return administrator ? UserRole.ADMIN : UserRole.USER;
+    }
+
     public AuthResult login(String email, String password) {
-        User user = userRepository.findByEmailNormalized(email.trim().toLowerCase(Locale.ROOT))
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+        User user = userRepository.findByEmailNormalized(normalizedEmail)
                 .orElseThrow(this::invalidCredentials);
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw invalidCredentials();
+        }
+        if (user.getRole() != UserRole.ADMIN && roleFor(normalizedEmail) == UserRole.ADMIN) {
+            user.assignRole(UserRole.ADMIN, Instant.now());
+            user = userRepository.save(user);
         }
         return issueSession(user, Instant.now());
     }

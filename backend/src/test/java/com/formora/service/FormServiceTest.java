@@ -46,7 +46,7 @@ class FormServiceTest {
 
         assertThat(created.getSlug()).isEqualTo("customer-feedback-2");
         verify(workspaceService).requirePermission(
-                user.getId(), "workspace-id", WorkspaceService.Permission.FORMS_CREATE
+                user, "workspace-id", WorkspaceService.Permission.FORMS_CREATE
         );
     }
 

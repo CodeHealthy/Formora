@@ -1,17 +1,21 @@
 package com.formora.controller;
 
 import com.formora.common.ApiResponse;
+import com.formora.dto.FormDtos.FormData;
+import com.formora.dto.FormDtos.FormDto;
+import com.formora.dto.FormDtos.FormListData;
+import com.formora.dto.FormDtos.FormListResponse;
+import com.formora.dto.FormDtos.FormResponse;
+import com.formora.dto.FormDtos.FormTitleRequest;
 import com.formora.model.Form;
 import com.formora.model.User;
 import com.formora.service.AuthService;
 import com.formora.service.FormService;
+import com.formora.service.FormPublicationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,10 +40,16 @@ public class FormController {
 
     private final AuthService authService;
     private final FormService formService;
+    private final FormPublicationService formPublicationService;
 
-    public FormController(AuthService authService, FormService formService) {
+    public FormController(
+            AuthService authService,
+            FormService formService,
+            FormPublicationService formPublicationService
+    ) {
         this.authService = authService;
         this.formService = formService;
+        this.formPublicationService = formPublicationService;
     }
 
     @PostMapping("/workspaces/{workspaceId}/forms")
@@ -92,6 +102,16 @@ public class FormController {
         return response(formService.archive(authService.requireUser(request), formId), request);
     }
 
+    @PostMapping("/forms/{formId}/publish")
+    FormResponse publish(@PathVariable String formId, HttpServletRequest request) {
+        return response(formPublicationService.publish(authService.requireUser(request), formId), request);
+    }
+
+    @DeleteMapping("/forms/{formId}/publish")
+    FormResponse unpublish(@PathVariable String formId, HttpServletRequest request) {
+        return response(formPublicationService.unpublish(authService.requireUser(request), formId), request);
+    }
+
     private FormResponse response(Form form, HttpServletRequest request) {
         return new FormResponse(new FormData(dto(form)), ApiResponse.meta(request));
     }
@@ -103,31 +123,4 @@ public class FormController {
         );
     }
 
-    public record FormTitleRequest(@NotBlank @Size(max = 120) String title) {
-    }
-
-    public record FormDto(
-            String id,
-            String workspaceId,
-            String ownerId,
-            String title,
-            String slug,
-            String status,
-            Instant createdAt,
-            Instant updatedAt,
-            Instant archivedAt
-    ) {
-    }
-
-    public record FormData(FormDto form) {
-    }
-
-    public record FormResponse(FormData data, Map<String, String> meta) {
-    }
-
-    public record FormListData(List<FormDto> forms) {
-    }
-
-    public record FormListResponse(FormListData data, Map<String, Object> meta) {
-    }
 }

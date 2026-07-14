@@ -16,7 +16,9 @@ public final class DotEnvLoader {
             "MONGODB_URI", "mongodb://localhost:27017",
             "MONGODB_DB_NAME", "formora",
             "SESSION_TTL_HOURS", "168",
-            "SECURE_COOKIES", "false"
+            "SECURE_COOKIES", "false",
+            "ADMIN_EMAILS", "",
+            "GUEST_ACCESS_TTL_MINUTES", "15"
     );
 
     private DotEnvLoader() {

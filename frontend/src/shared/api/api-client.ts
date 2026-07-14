@@ -6,6 +6,7 @@ import { ApiError } from "./api-error";
 
 export interface ApiRequestOptions {
   body?: unknown;
+  headers?: Record<string, string>;
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 }
 
@@ -19,6 +20,7 @@ export async function requestValidated<T>(
     headers: {
       accept: "application/json",
       ...(options.body === undefined ? {} : { "content-type": "application/json" }),
+      ...options.headers,
     },
     method: options.method ?? "GET",
   };

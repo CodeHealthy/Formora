@@ -29,7 +29,7 @@ public class FormService {
     }
 
     public Form create(User user, String workspaceId, String title) {
-        workspaceService.requirePermission(user.getId(), workspaceId, WorkspaceService.Permission.FORMS_CREATE);
+        workspaceService.requirePermission(user, workspaceId, WorkspaceService.Permission.FORMS_CREATE);
         String normalizedTitle = title.trim();
         Instant now = Instant.now();
 
@@ -49,7 +49,7 @@ public class FormService {
     }
 
     public Page<Form> list(User user, String workspaceId, int page, int pageSize, boolean includeArchived) {
-        workspaceService.requirePermission(user.getId(), workspaceId, WorkspaceService.Permission.FORMS_READ);
+        workspaceService.requirePermission(user, workspaceId, WorkspaceService.Permission.FORMS_READ);
         PageRequest pageable = PageRequest.of(
                 page - 1, pageSize, Sort.by(Sort.Direction.DESC, "updatedAt")
         );
@@ -61,7 +61,7 @@ public class FormService {
     public Form get(User user, String formId) {
         Form form = find(formId);
         workspaceService.requirePermission(
-                user.getId(), form.getWorkspaceId(), WorkspaceService.Permission.FORMS_READ
+                user, form.getWorkspaceId(), WorkspaceService.Permission.FORMS_READ
         );
         return form;
     }
@@ -69,7 +69,7 @@ public class FormService {
     public Form rename(User user, String formId, String title) {
         Form form = find(formId);
         workspaceService.requirePermission(
-                user.getId(), form.getWorkspaceId(), WorkspaceService.Permission.FORMS_UPDATE
+                user, form.getWorkspaceId(), WorkspaceService.Permission.FORMS_UPDATE
         );
         ensureActive(form);
         form.rename(title.trim(), Instant.now());
@@ -79,7 +79,7 @@ public class FormService {
     public Form archive(User user, String formId) {
         Form form = find(formId);
         workspaceService.requirePermission(
-                user.getId(), form.getWorkspaceId(), WorkspaceService.Permission.FORMS_DELETE
+                user, form.getWorkspaceId(), WorkspaceService.Permission.FORMS_DELETE
         );
         ensureActive(form);
         form.archive(Instant.now());

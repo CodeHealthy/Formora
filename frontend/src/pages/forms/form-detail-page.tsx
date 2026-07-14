@@ -1,10 +1,12 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
   useArchiveFormMutation,
   useFormQuery,
 } from "../../entities/form/model/form-queries";
 import { RenameFormForm } from "../../features/rename-form/components/rename-form-form";
+import { FormAccessSettings } from "../../features/form-access/components/form-access-settings";
+import { FormPublicationSettings } from "../../features/form-publication/components/form-publication-settings";
 
 export function FormDetailPage() {
   const { formId = "" } = useParams();
@@ -40,9 +42,29 @@ export function FormDetailPage() {
       <h1 id="form-detail-title">{currentForm.title}</h1>
       <p className="section-copy">Stable address: /{currentForm.slug}</p>
 
+      {currentForm.status !== "archived" ? (
+        <Link className="primary-link form-builder-link" to={`/forms/${currentForm.id}/builder`}>
+          Build form
+        </Link>
+      ) : null}
+      <Link className="secondary-link form-builder-link" to={`/forms/${currentForm.id}/responses`}>
+        View responses
+      </Link>
+
       <div className="settings-card">
         <h2>Form details</h2>
         <RenameFormForm formId={currentForm.id} title={currentForm.title} />
+      </div>
+
+      <div className="settings-card">
+        <h2>Guest access</h2>
+        <p>Choose how guests will open and submit this form once it is published.</p>
+        <FormAccessSettings formId={currentForm.id} archived={currentForm.status === "archived"} />
+      </div>
+
+      <div className="settings-card">
+        <h2>Publish and share</h2>
+        <FormPublicationSettings form={currentForm} />
       </div>
 
       <div className="danger-card">

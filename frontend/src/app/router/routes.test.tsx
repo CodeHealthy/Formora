@@ -13,6 +13,7 @@ const sessionResponse = {
       id: "507f1f77bcf86cd799439011",
       displayName: "Ada Lovelace",
       email: "ada@example.com",
+      role: "USER",
       createdAt: "2026-07-14T12:00:00.000Z",
     },
   },
@@ -34,7 +35,7 @@ const workspace = {
   updatedAt: "2026-07-14T12:00:00.000Z",
 };
 
-function formResponse(title: string, status: "draft" | "archived" = "draft") {
+function formResponse(title: string, status: "draft" | "published" | "archived" = "draft") {
   return {
     data: {
       form: {
@@ -165,6 +166,23 @@ describe("application routes", () => {
           return Promise.resolve(jsonResponse(formResponse("Customer feedback"), 201));
         }
 
+        if (url.endsWith(`/forms/${formId}/access-settings`)) {
+          const passwordConfigured = init?.method === "PUT";
+          return Promise.resolve(jsonResponse({
+            data: {
+              accessSettings: {
+                accessMode: passwordConfigured ? "PASSWORD" : "LINK",
+                passwordConfigured,
+              },
+            },
+            meta: { requestId: "req_test" },
+          }));
+        }
+
+        if (url.endsWith(`/forms/${formId}/publish`) && init?.method === "POST") {
+          return Promise.resolve(jsonResponse(formResponse("Client feedback", "published")));
+        }
+
         if (url.endsWith(`/forms/${formId}`) && init?.method === "PATCH") {
           return Promise.resolve(jsonResponse(formResponse("Client feedback")));
         }
@@ -194,9 +212,136 @@ describe("application routes", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Stable address: /customer-feedback")).toBeInTheDocument();
 
+    await user.click(screen.getByLabelText(/Anyone with the link and password/));
+    await user.type(screen.getByLabelText("Form password"), "client-secret");
+    await user.click(screen.getByRole("button", { name: "Save access settings" }));
+    expect(await screen.findByText("Access settings saved.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Publish form" }));
+    expect(await screen.findByText(/\/f\/customer-feedback/)).toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: "Archive form" }));
     expect(await screen.findByRole("heading", { name: "Forms" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "No forms found" })).toBeInTheDocument();
+  });
+
+  it("builds, reorders, and saves a form draft", async () => {
+    const user = userEvent.setup();
+    let savedDefinition: unknown;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input, init) => {
+        const url = getRequestUrl(input);
+
+        if (url.endsWith("/auth/session")) {
+          return Promise.resolve(jsonResponse(sessionResponse));
+        }
+        if (url.endsWith(`/forms/${formId}/draft`) && init?.method === "PUT") {
+          savedDefinition = JSON.parse(String(init.body));
+          return Promise.resolve(jsonResponse({
+            data: { draft: { ...(savedDefinition as object), updatedAt: "2026-07-14T12:10:00.000Z" } },
+            meta: { requestId: "req_test" },
+          }));
+        }
+        if (url.endsWith(`/forms/${formId}/draft`)) {
+          return Promise.resolve(jsonResponse({
+            data: { draft: { schemaVersion: 1, fields: [], updatedAt: "2026-07-14T12:00:00.000Z" } },
+            meta: { requestId: "req_test" },
+          }));
+        }
+        if (url.endsWith(`/forms/${formId}`)) {
+          return Promise.resolve(jsonResponse(formResponse("Customer feedback")));
+        }
+        return Promise.resolve(jsonResponse({}, 404));
+      }),
+    );
+
+    renderApplication(`/forms/${formId}/builder`);
+
+    expect(await screen.findByRole("heading", { name: "Customer feedback" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Short text/ }));
+    await user.click(screen.getByRole("button", { name: /Email/ }));
+    const labelInput = screen.getByLabelText("Question label");
+    await user.clear(labelInput);
+    await user.type(labelInput, "Work email");
+    await user.click(screen.getAllByTitle("Move up")[1]);
+    await user.click(screen.getByRole("button", { name: "Save draft" }));
+
+    expect(await screen.findByText("All changes saved")).toBeInTheDocument();
+    expect(savedDefinition).toMatchObject({
+      schemaVersion: 1,
+      fields: [
+        { type: "email", label: "Work email" },
+        { type: "text", label: "Short text" },
+      ],
+    });
+  });
+
+  it("lists responses and opens publication-aware answer details", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input) => {
+        const url = getRequestUrl(input);
+        if (url.endsWith("/auth/session")) {
+          return Promise.resolve(jsonResponse(sessionResponse));
+        }
+        if (url.endsWith(`/forms/${formId}/submissions/submission-id`)) {
+          return Promise.resolve(jsonResponse({
+            data: {
+              submission: {
+                id: "submission-id",
+                formId,
+                formTitle: "Customer feedback",
+                publicationVersion: 2,
+                publicationTitle: "Customer feedback v2",
+                submittedAt: "2026-07-14T12:15:00.000Z",
+                answers: [
+                  { fieldId: "name", label: "Original name", type: "text", answered: true, value: "Ada" },
+                  { fieldId: "comment", label: "Comment", type: "textarea", answered: false, value: null },
+                ],
+              },
+            },
+            meta: { requestId: "req_test" },
+          }));
+        }
+        if (url.includes(`/forms/${formId}/submissions?`)) {
+          return Promise.resolve(jsonResponse({
+            data: {
+              submissions: [{
+                id: "submission-id",
+                publicationVersion: 2,
+                answeredFields: 1,
+                submittedAt: "2026-07-14T12:15:00.000Z",
+              }],
+            },
+            meta: {
+              page: 1,
+              pageSize: 20,
+              totalItems: 1,
+              totalPages: 1,
+              availableVersions: [2, 1],
+              requestId: "req_test",
+            },
+          }));
+        }
+        if (url.endsWith(`/forms/${formId}`)) {
+          return Promise.resolve(jsonResponse(formResponse("Customer feedback", "published")));
+        }
+        return Promise.resolve(jsonResponse({}, 404));
+      }),
+    );
+
+    renderApplication(`/forms/${formId}/responses`);
+
+    expect(await screen.findByRole("heading", { name: "Responses" })).toBeInTheDocument();
+    expect(screen.getByText("1 submitted responses")).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "View response" }));
+
+    expect(await screen.findByRole("heading", { name: "Response details" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Original name" })).toBeInTheDocument();
+    expect(screen.getByText("Ada")).toBeInTheDocument();
+    expect(screen.getByText("No answer")).toBeInTheDocument();
   });
 
   it("redirects unauthenticated users to login", async () => {
@@ -224,6 +369,121 @@ describe("application routes", () => {
     expect(
       await screen.findByRole("heading", { name: "Sign in to Formora" }),
     ).toBeInTheDocument();
+  });
+
+  it("renders and submits a public link-access form without authentication", async () => {
+    const user = userEvent.setup();
+    let submissionBody: unknown;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input, init) => {
+        const url = getRequestUrl(input);
+        if (url.endsWith("/public/forms/customer-feedback/submissions")) {
+          submissionBody = JSON.parse(String(init?.body));
+          return Promise.resolve(jsonResponse({
+            data: {
+              submissionId: "507f1f77bcf86cd799439099",
+              submittedAt: "2026-07-14T12:15:00.000Z",
+            },
+            meta: { requestId: "req_test" },
+          }, 201));
+        }
+        if (url.endsWith("/public/forms/customer-feedback")) {
+          return Promise.resolve(jsonResponse({
+            data: {
+              form: {
+                slug: "customer-feedback",
+                title: "Customer feedback",
+                requiresPassword: false,
+                publicationVersion: 1,
+                definition: {
+                  schemaVersion: 1,
+                  fields: [
+                    { id: "email", type: "email", label: "Email", required: true, placeholder: "", options: [] },
+                    { id: "country", type: "select", label: "Country", required: false, placeholder: "", options: ["Pakistan", "Canada"] },
+                    { id: "consent", type: "checkbox", label: "Consent", required: true, placeholder: "", options: [] },
+                  ],
+                },
+              },
+            },
+            meta: { requestId: "req_test" },
+          }));
+        }
+        return Promise.resolve(jsonResponse({}, 404));
+      }),
+    );
+
+    renderApplication("/f/customer-feedback");
+
+    await user.type(await screen.findByLabelText(/Email/), "guest@example.com");
+    await user.selectOptions(screen.getByLabelText("Country"), "Pakistan");
+    await user.click(screen.getByLabelText(/Consent/));
+    await user.click(screen.getByRole("button", { name: "Submit response" }));
+
+    expect(await screen.findByRole("heading", { name: "Response submitted" })).toBeInTheDocument();
+    expect(submissionBody).toEqual({
+      answers: { email: "guest@example.com", country: "Pakistan", consent: true },
+    });
+  });
+
+  it("uses a short-lived token for password-protected submissions", async () => {
+    const user = userEvent.setup();
+    let accessHeader: string | undefined;
+    const protectedForm = {
+      slug: "private-feedback",
+      title: "Private feedback",
+      requiresPassword: true,
+      publicationVersion: 2,
+      definition: {
+        schemaVersion: 1,
+        fields: [
+          { id: "message", type: "textarea", label: "Message", required: true, placeholder: "", options: [] },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input, init) => {
+        const url = getRequestUrl(input);
+        if (url.endsWith("/public/forms/private-feedback/access")) {
+          return Promise.resolve(jsonResponse({
+            data: {
+              form: protectedForm,
+              accessToken: "guest-access-token",
+              expiresAt: "2026-07-14T12:30:00.000Z",
+            },
+            meta: { requestId: "req_test" },
+          }));
+        }
+        if (url.endsWith("/public/forms/private-feedback/submissions")) {
+          accessHeader = (init?.headers as Record<string, string> | undefined)?.["X-Form-Access-Token"];
+          return Promise.resolve(jsonResponse({
+            data: {
+              submissionId: "507f1f77bcf86cd799439098",
+              submittedAt: "2026-07-14T12:16:00.000Z",
+            },
+            meta: { requestId: "req_test" },
+          }, 201));
+        }
+        if (url.endsWith("/public/forms/private-feedback")) {
+          return Promise.resolve(jsonResponse({
+            data: { form: { ...protectedForm, definition: null } },
+            meta: { requestId: "req_test" },
+          }));
+        }
+        return Promise.resolve(jsonResponse({}, 404));
+      }),
+    );
+
+    renderApplication("/f/private-feedback");
+
+    await user.type(await screen.findByLabelText("Form password"), "client-secret");
+    await user.click(screen.getByRole("button", { name: "Open form" }));
+    await user.type(await screen.findByLabelText(/Message/), "A protected response");
+    await user.click(screen.getByRole("button", { name: "Submit response" }));
+
+    expect(await screen.findByRole("heading", { name: "Response submitted" })).toBeInTheDocument();
+    expect(accessHeader).toBe("guest-access-token");
   });
 
   it("validates login input before sending a request", async () => {

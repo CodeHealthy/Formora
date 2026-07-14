@@ -19,6 +19,7 @@ public class User {
     private String emailNormalized;
 
     private String passwordHash;
+    private UserRole role = UserRole.USER;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -26,10 +27,15 @@ public class User {
     }
 
     public User(String displayName, String email, String passwordHash, Instant now) {
+        this(displayName, email, passwordHash, UserRole.USER, now);
+    }
+
+    public User(String displayName, String email, String passwordHash, UserRole role, Instant now) {
         this.displayName = displayName;
         this.email = email;
         this.emailNormalized = email;
         this.passwordHash = passwordHash;
+        this.role = role;
         this.createdAt = now;
         this.updatedAt = now;
     }
@@ -48,6 +54,16 @@ public class User {
 
     public String getPasswordHash() {
         return passwordHash;
+    }
+
+    public UserRole getRole() {
+        // Accounts created before RBAC was introduced retain normal user access.
+        return role == null ? UserRole.USER : role;
+    }
+
+    public void assignRole(UserRole role, Instant now) {
+        this.role = role;
+        this.updatedAt = now;
     }
 
     public Instant getCreatedAt() {

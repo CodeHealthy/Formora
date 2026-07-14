@@ -6,6 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record FormoraProperties(
         String corsOrigin,
         long sessionTtlHours,
-        boolean secureCookies
+        boolean secureCookies,
+        String adminEmails,
+        long guestAccessTtlMinutes
 ) {
 }

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Formora API
-  version: 0.3.0
+  version: 0.7.0
   description: HTTP API for the Formora platform.
 servers:
   - url: http://localhost:3000
@@ -10,6 +10,7 @@ tags:
   - name: Authentication
   - name: Workspaces
   - name: Forms
+  - name: Public Forms
 paths:
   /health/live:
     get:
@@ -346,6 +347,381 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/forms/{formId}/draft:
+    parameters:
+      - $ref: "#/components/parameters/FormId"
+    get:
+      operationId: getFormDraft
+      summary: Retrieve the authorized form's draft definition
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The current draft definition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormDraftResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: saveFormDraft
+      summary: Replace the authorized form's draft definition
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormDefinition"
+      responses:
+        "200":
+          description: The saved draft definition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormDraftResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/forms/{formId}/access-settings:
+    parameters:
+      - $ref: "#/components/parameters/FormId"
+    get:
+      operationId: getFormAccessSettings
+      summary: Retrieve guest access settings without exposing password hashes
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The form's guest access settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormAccessResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateFormAccessSettings
+      summary: Configure link or password access for future guests
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormAccessRequest"
+      responses:
+        "200":
+          description: The updated guest access settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormAccessResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/forms/{formId}/publish:
+    parameters:
+      - $ref: "#/components/parameters/FormId"
+    post:
+      operationId: publishForm
+      summary: Publish a new immutable snapshot of the current draft
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The form and its latest draft snapshot were published.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: unpublishForm
+      summary: Remove a published form from guest access
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The form was returned to draft status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/forms/{formId}/submissions:
+    parameters:
+      - $ref: "#/components/parameters/FormId"
+    get:
+      operationId: listFormSubmissions
+      summary: List authorized form responses with publication and date filters
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: publicationVersion
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: A page of submission summaries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedSubmissionListResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/forms/{formId}/submissions/export:
+    parameters:
+      - $ref: "#/components/parameters/FormId"
+    get:
+      operationId: exportFormSubmissions
+      summary: Export one publication version as CSV
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: publicationVersion
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: CSV with columns from the selected publication version.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/forms/{formId}/submissions/{submissionId}:
+    parameters:
+      - $ref: "#/components/parameters/FormId"
+      - name: submissionId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getFormSubmission
+      summary: Retrieve a response with labels from its historical publication
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The publication-aware response details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedSubmissionResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/public/forms/{slug}:
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getPublicForm
+      summary: Retrieve a published form or its password challenge
+      tags: [Public Forms]
+      security: []
+      responses:
+        "200":
+          description: The published form. Definition is null until a protected form is unlocked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicFormResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/public/forms/{slug}/access:
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: unlockPublicForm
+      summary: Exchange a form password for a short-lived access token
+      tags: [Public Forms]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  format: password
+                  maxLength: 128
+      responses:
+        "200":
+          description: Password accepted and access token issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicFormAccessResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/public/forms/{slug}/submissions:
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-Form-Access-Token
+        in: header
+        required: false
+        description: Required for password-protected forms after unlocking.
+        schema:
+          type: string
+    post:
+      operationId: submitPublicForm
+      summary: Validate and store answers against the published snapshot
+      tags: [Public Forms]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicSubmissionRequest"
+      responses:
+        "201":
+          description: The response was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicSubmissionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          description: The client exceeded the submission rate limit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   securitySchemes:
     cookieAuth:
@@ -472,7 +848,7 @@ components:
           format: password
     AuthUser:
       type: object
-      required: [id, displayName, email, createdAt]
+      required: [id, displayName, email, role, createdAt]
       properties:
         id:
           type: string
@@ -481,6 +857,9 @@ components:
         email:
           type: string
           format: email
+        role:
+          type: string
+          enum: [ADMIN, USER, GUEST]
         createdAt:
           type: string
           format: date-time
@@ -613,6 +992,263 @@ components:
           properties:
             form:
               $ref: "#/components/schemas/Form"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    FormField:
+      type: object
+      required: [id, type, label, required, placeholder, options]
+      properties:
+        id:
+          type: string
+          maxLength: 64
+          pattern: "^[A-Za-z0-9_-]+$"
+        type:
+          type: string
+          enum: [text, textarea, email, number, select, checkbox]
+        label:
+          type: string
+          minLength: 1
+          maxLength: 120
+        required:
+          type: boolean
+        placeholder:
+          type: string
+          maxLength: 200
+        options:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+    FormDefinition:
+      type: object
+      required: [schemaVersion, fields]
+      properties:
+        schemaVersion:
+          type: integer
+          const: 1
+        fields:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/FormField"
+    FormDraftResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [draft]
+          properties:
+            draft:
+              allOf:
+                - $ref: "#/components/schemas/FormDefinition"
+                - type: object
+                  required: [updatedAt]
+                  properties:
+                    updatedAt:
+                      type: string
+                      format: date-time
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    FormAccessRequest:
+      type: object
+      required: [accessMode]
+      properties:
+        accessMode:
+          type: string
+          enum: [LINK, PASSWORD]
+        password:
+          type: [string, "null"]
+          format: password
+          minLength: 8
+          maxLength: 128
+      description: Password is required when accessMode is PASSWORD and ignored for LINK access.
+    FormAccessSettings:
+      type: object
+      required: [accessMode, passwordConfigured]
+      properties:
+        accessMode:
+          type: string
+          enum: [LINK, PASSWORD]
+        passwordConfigured:
+          type: boolean
+    FormAccessResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [accessSettings]
+          properties:
+            accessSettings:
+              $ref: "#/components/schemas/FormAccessSettings"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ManagedSubmissionSummary:
+      type: object
+      required: [id, publicationVersion, answeredFields, submittedAt]
+      properties:
+        id:
+          type: string
+        publicationVersion:
+          type: integer
+          minimum: 1
+        answeredFields:
+          type: integer
+          minimum: 0
+        submittedAt:
+          type: string
+          format: date-time
+    ManagedSubmissionListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [submissions]
+          properties:
+            submissions:
+              type: array
+              items:
+                $ref: "#/components/schemas/ManagedSubmissionSummary"
+        meta:
+          allOf:
+            - $ref: "#/components/schemas/ResponseMeta"
+            - type: object
+              required: [page, pageSize, totalItems, totalPages, availableVersions]
+              properties:
+                page:
+                  type: integer
+                pageSize:
+                  type: integer
+                totalItems:
+                  type: integer
+                totalPages:
+                  type: integer
+                availableVersions:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+    ManagedAnswer:
+      type: object
+      required: [fieldId, label, type, answered, value]
+      properties:
+        fieldId:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, textarea, email, number, select, checkbox]
+        answered:
+          type: boolean
+        value: {}
+    ManagedSubmission:
+      type: object
+      required:
+        [id, formId, formTitle, publicationVersion, publicationTitle, submittedAt, answers]
+      properties:
+        id:
+          type: string
+        formId:
+          type: string
+        formTitle:
+          type: string
+        publicationVersion:
+          type: integer
+          minimum: 1
+        publicationTitle:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManagedAnswer"
+    ManagedSubmissionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [submission]
+          properties:
+            submission:
+              $ref: "#/components/schemas/ManagedSubmission"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    PublicForm:
+      type: object
+      required: [slug, title, requiresPassword, publicationVersion, definition]
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        requiresPassword:
+          type: boolean
+        publicationVersion:
+          type: integer
+          minimum: 1
+        definition:
+          oneOf:
+            - $ref: "#/components/schemas/FormDefinition"
+            - type: "null"
+    PublicFormResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [form]
+          properties:
+            form:
+              $ref: "#/components/schemas/PublicForm"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    PublicFormAccessResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [form, accessToken, expiresAt]
+          properties:
+            form:
+              $ref: "#/components/schemas/PublicForm"
+            accessToken:
+              type: string
+            expiresAt:
+              type: string
+              format: date-time
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    PublicSubmissionRequest:
+      type: object
+      required: [answers]
+      properties:
+        answers:
+          type: object
+          maxProperties: 100
+          additionalProperties: true
+    PublicSubmissionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [submissionId, submittedAt]
+          properties:
+            submissionId:
+              type: string
+            submittedAt:
+              type: string
+              format: date-time
         meta:
           $ref: "#/components/schemas/ResponseMeta"
     FormListResponse:

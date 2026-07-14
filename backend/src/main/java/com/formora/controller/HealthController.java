@@ -1,8 +1,9 @@
 package com.formora.controller;
 
 import com.formora.common.ApiResponse;
+import com.formora.dto.HealthDtos.HealthData;
+import com.formora.dto.HealthDtos.HealthResponse;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Map;
 import org.bson.Document;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.http.HttpStatus;
@@ -41,9 +42,4 @@ public class HealthController {
         return new HealthResponse(new HealthData(status), ApiResponse.meta(request));
     }
 
-    public record HealthData(String status) {
-    }
-
-    public record HealthResponse(HealthData data, Map<String, String> meta) {
-    }
 }

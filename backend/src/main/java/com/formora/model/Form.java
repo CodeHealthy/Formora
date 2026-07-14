@@ -32,6 +32,13 @@ public class Form {
     private Instant createdAt;
     private Instant updatedAt;
     private Instant archivedAt;
+    private FormDefinition draftDefinition = FormDefinition.empty();
+    private FormAccessMode accessMode = FormAccessMode.LINK;
+    private String submissionPasswordHash;
+    private FormDefinition publishedDefinition;
+    private int publicationVersion;
+    private Instant publishedAt;
+    private String publishedTitle;
 
     public Form() {
     }
@@ -55,6 +62,41 @@ public class Form {
         this.status = "archived";
         this.archivedAt = now;
         this.updatedAt = now;
+    }
+
+    public void updateDraftDefinition(FormDefinition definition, Instant now) {
+        this.draftDefinition = definition;
+        this.updatedAt = now;
+    }
+
+    public void configureAccess(FormAccessMode accessMode, String submissionPasswordHash, Instant now) {
+        this.accessMode = accessMode;
+        this.submissionPasswordHash = submissionPasswordHash;
+        this.updatedAt = now;
+    }
+
+    public void publish(Instant now) {
+        this.publishedDefinition = copyDefinition(getDraftDefinition());
+        this.publishedTitle = title;
+        this.publicationVersion += 1;
+        this.status = "published";
+        this.publishedAt = now;
+        this.updatedAt = now;
+    }
+
+    public void unpublish(Instant now) {
+        this.status = "draft";
+        this.updatedAt = now;
+    }
+
+    private FormDefinition copyDefinition(FormDefinition source) {
+        return new FormDefinition(
+                source.getSchemaVersion(),
+                source.getFields().stream().map(field -> new FormField(
+                        field.getId(), field.getType(), field.getLabel(), field.isRequired(),
+                        field.getPlaceholder(), field.getOptions()
+                )).toList()
+        );
     }
 
     public String getId() {
@@ -91,5 +133,34 @@ public class Form {
 
     public Instant getArchivedAt() {
         return archivedAt;
+    }
+
+    public FormDefinition getDraftDefinition() {
+        // Existing forms created before the builder was introduced have no stored definition.
+        return draftDefinition == null ? FormDefinition.empty() : draftDefinition;
+    }
+
+    public FormAccessMode getAccessMode() {
+        return accessMode == null ? FormAccessMode.LINK : accessMode;
+    }
+
+    public String getSubmissionPasswordHash() {
+        return submissionPasswordHash;
+    }
+
+    public FormDefinition getPublishedDefinition() {
+        return publishedDefinition;
+    }
+
+    public int getPublicationVersion() {
+        return publicationVersion;
+    }
+
+    public Instant getPublishedAt() {
+        return publishedAt;
+    }
+
+    public String getPublishedTitle() {
+        return publishedTitle == null ? title : publishedTitle;
     }
 }
