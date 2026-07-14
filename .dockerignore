@@ -5,6 +5,5 @@
 **/coverage
 .env*
 !.env.example
-FORMORAPLAN.md
 README.md
 *.log

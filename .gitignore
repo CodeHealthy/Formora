@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+target/
 
 # Production and compiler output
 dist/
@@ -40,6 +41,3 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 Desktop.ini
-
-#Plan
-FORMORAPLAN.md

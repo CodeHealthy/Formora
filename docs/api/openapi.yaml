@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Formora API
-  version: 0.2.0
+  version: 0.3.0
   description: HTTP API for the Formora platform.
 servers:
   - url: http://localhost:3000
@@ -9,6 +9,7 @@ tags:
   - name: Health
   - name: Authentication
   - name: Workspaces
+  - name: Forms
 paths:
   /health/live:
     get:
@@ -205,6 +206,146 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/workspaces/{workspaceId}/forms:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listForms
+      summary: List forms in an authorized workspace
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: includeArchived
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: A page of workspace forms, newest updates first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormListResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+    post:
+      operationId: createForm
+      summary: Create a draft form with a globally unique slug
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFormRequest"
+      responses:
+        "201":
+          description: The draft form was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/forms/{formId}:
+    parameters:
+      - $ref: "#/components/parameters/FormId"
+    get:
+      operationId: getForm
+      summary: Retrieve a form when authorized through its workspace
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The requested form.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: renameForm
+      summary: Rename a form without changing its slug
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameFormRequest"
+      responses:
+        "200":
+          description: The renamed form.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: archiveForm
+      summary: Archive a form
+      tags: [Forms]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The archived form.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   securitySchemes:
     cookieAuth:
@@ -220,6 +361,21 @@ components:
       description: HTTP-only Formora session cookie.
       schema:
         type: string
+  parameters:
+    WorkspaceId:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-fA-F0-9]{24}$"
+    FormId:
+      name: formId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-fA-F0-9]{24}$"
   responses:
     ValidationError:
       description: The request did not match its boundary schema.
@@ -229,6 +385,24 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     AuthenticationRequired:
       description: A valid session is required.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    PermissionDenied:
+      description: The user does not have the required workspace permission.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: The operation conflicts with the resource's current state.
       content:
         application/json:
           schema:
@@ -284,7 +458,7 @@ components:
         password:
           type: string
           format: password
-          minLength: 12
+          minLength: 8
           maxLength: 128
     LoginRequest:
       type: object
@@ -386,3 +560,88 @@ components:
                 $ref: "#/components/schemas/Workspace"
         meta:
           $ref: "#/components/schemas/ResponseMeta"
+    CreateFormRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+    RenameFormRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+    Form:
+      type: object
+      required:
+        [id, workspaceId, ownerId, title, slug, status, createdAt, updatedAt, archivedAt]
+      properties:
+        id:
+          type: string
+        workspaceId:
+          type: string
+        ownerId:
+          type: string
+        title:
+          type: string
+        slug:
+          type: string
+        status:
+          type: string
+          enum: [draft, published, archived]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        archivedAt:
+          type: [string, "null"]
+          format: date-time
+    FormResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [form]
+          properties:
+            form:
+              $ref: "#/components/schemas/Form"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    FormListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [forms]
+          properties:
+            forms:
+              type: array
+              items:
+                $ref: "#/components/schemas/Form"
+        meta:
+          allOf:
+            - $ref: "#/components/schemas/ResponseMeta"
+            - type: object
+              required: [page, pageSize, totalItems, totalPages]
+              properties:
+                page:
+                  type: integer
+                  minimum: 1
+                pageSize:
+                  type: integer
+                  minimum: 1
+                totalItems:
+                  type: integer
+                  minimum: 0
+                totalPages:
+                  type: integer
+                  minimum: 0
