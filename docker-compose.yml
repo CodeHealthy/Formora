@@ -1,0 +1,63 @@
+services:
+  mongodb:
+    image: mongo:8.2
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - formora-mongodb:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo-init:
+    image: mongo:8.2
+    restart: "no"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    entrypoint:
+      - mongosh
+      - --host
+      - mongodb:27017
+      - --quiet
+      - --eval
+      - >-
+        try { rs.status() } catch (error) {
+          rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongodb:27017" }] })
+        }
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LOG_LEVEL: info
+      CORS_ORIGIN: http://localhost:8080
+      MONGODB_URI: mongodb://mongodb:27017/formora?replicaSet=rs0&directConnection=true
+      MONGODB_DB_NAME: formora
+      SESSION_TTL_HOURS: 168
+    ports:
+      - "3000:3000"
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_BASE_URL: http://localhost:3000/api/v1
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+
+volumes:
+  formora-mongodb:

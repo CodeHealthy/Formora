@@ -1,0 +1,10 @@
+.git
+.github
+**/node_modules
+**/dist
+**/coverage
+.env*
+!.env.example
+FORMORAPLAN.md
+README.md
+*.log

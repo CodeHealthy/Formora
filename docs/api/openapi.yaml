@@ -1,0 +1,388 @@
+openapi: 3.1.0
+info:
+  title: Formora API
+  version: 0.2.0
+  description: HTTP API for the Formora platform.
+servers:
+  - url: http://localhost:3000
+tags:
+  - name: Health
+  - name: Authentication
+  - name: Workspaces
+paths:
+  /health/live:
+    get:
+      operationId: getLiveness
+      summary: Check whether the API process is running
+      tags: [Health]
+      responses:
+        "200":
+          description: The process is running.
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /health/ready:
+    get:
+      operationId: getReadiness
+      summary: Check whether required API dependencies are available
+      tags: [Health]
+      responses:
+        "200":
+          description: The API is ready to receive traffic.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: At least one required dependency is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/v1/auth/register:
+    post:
+      operationId: register
+      summary: Register a user and create a session
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              displayName: Ada Lovelace
+              email: ada@example.com
+              password: a-secure-password
+      responses:
+        "201":
+          description: The user and session were created.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          description: The email address is already registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Authenticate and create a session
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authentication succeeded.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Revoke the current session
+      tags: [Authentication]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The current session was revoked or no session existed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResponse"
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      summary: Retrieve the authenticated user
+      tags: [Authentication]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The current authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /api/v1/workspaces:
+    get:
+      operationId: listWorkspaces
+      summary: List workspaces available to the authenticated user
+      tags: [Workspaces]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The user's workspace memberships.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+    post:
+      operationId: createWorkspace
+      summary: Create a workspace with the authenticated user as owner
+      tags: [Workspaces]
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspaceRequest"
+      responses:
+        "201":
+          description: The workspace and owner membership were created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /api/v1/workspaces/{workspaceId}:
+    get:
+      operationId: getWorkspace
+      summary: Retrieve an authorized workspace
+      tags: [Workspaces]
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-fA-F0-9]{24}$"
+      responses:
+        "200":
+          description: The requested workspace and the user's role.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          description: The user is not a workspace member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: The workspace was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: formora_session
+  headers:
+    RequestId:
+      description: Correlation identifier for the request.
+      schema:
+        type: string
+    SessionCookie:
+      description: HTTP-only Formora session cookie.
+      schema:
+        type: string
+  responses:
+    ValidationError:
+      description: The request did not match its boundary schema.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    AuthenticationRequired:
+      description: A valid session is required.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    ResponseMeta:
+      type: object
+      required: [requestId]
+      properties:
+        requestId:
+          type: string
+          minLength: 1
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details, requestId]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details: {}
+            requestId:
+              type: string
+    HealthResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [status]
+          properties:
+            status:
+              type: string
+              enum: [ok, unavailable]
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    RegisterRequest:
+      type: object
+      required: [displayName, email, password]
+      properties:
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 80
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 128
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    AuthUser:
+      type: object
+      required: [id, displayName, email, createdAt]
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+    AuthSessionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [user]
+          properties:
+            user:
+              $ref: "#/components/schemas/AuthUser"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    LogoutResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [success]
+          properties:
+            success:
+              type: boolean
+              const: true
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    CreateWorkspaceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 80
+    Workspace:
+      type: object
+      required: [id, name, role, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [owner, admin, editor, viewer]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    WorkspaceResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [workspace]
+          properties:
+            workspace:
+              $ref: "#/components/schemas/Workspace"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    WorkspaceListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [workspaces]
+          properties:
+            workspaces:
+              type: array
+              items:
+                $ref: "#/components/schemas/Workspace"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"

@@ -1,0 +1,31 @@
+{
+  "name": "formora",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Formora multi-tenant form platform",
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "tsc -b && npm run build:web",
+    "build:web": "npm run build -w @formora/web",
+    "dev": "concurrently --kill-others-on-fail --names api,web \"npm run dev -w @formora/api\" \"npm run dev -w @formora/web\"",
+    "lint": "eslint .",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "tsc -b --pretty"
+  },
+  "devDependencies": {
+    "@formora/eslint-config": "*",
+    "@formora/typescript-config": "*",
+    "@types/node": "26.1.1",
+    "concurrently": "10.0.3",
+    "eslint": "10.7.0",
+    "typescript": "6.0.3"
+  }
+}

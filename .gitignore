@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Production and compiler output
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Test output
+playwright-report/
+test-results/
+blob-report/
+*.lcov
+
+# Tool caches
+.cache/
+.vite/
+.eslintcache
+
+# Runtime files and local request artifacts
+*.log
+*.pid
+*.pid.lock
+cookies.txt
+npm-debug.log*
+
+# IDE and editor metadata
+.idea/
+.vscode/
+.history/
+*.swp
+*.swo
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+#Plan
+FORMORAPLAN.md

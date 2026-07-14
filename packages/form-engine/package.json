@@ -1,0 +1,23 @@
+{
+  "name": "@formora/form-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -b --pretty"
+  },
+  "devDependencies": {
+    "@formora/typescript-config": "*",
+    "vitest": "4.1.10"
+  }
+}

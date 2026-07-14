@@ -1,0 +1,11 @@
+{
+  "extends": "@formora/typescript-config/node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.test.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../../packages/contracts/tsconfig.build.json" }
+  ]
+}
